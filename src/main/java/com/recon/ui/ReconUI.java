@@ -38,14 +38,18 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
     }
 
     private void layoutComponents() {
-        Container contentPane = getContentPane();
-        contentPane.setLayout(new BorderLayout(10, 10));
-        ((JPanel) contentPane).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        contentPane.add(fileChooserPanel, BorderLayout.NORTH);
-        contentPane.add(mappingPanel, BorderLayout.CENTER);
+        // Create a main panel to hold all components and set it as the content pane
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        mainPanel.add(fileChooserPanel, BorderLayout.NORTH);
+        mainPanel.add(mappingPanel, BorderLayout.CENTER);
+
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         bottomPanel.add(runButton);
-        contentPane.add(bottomPanel, BorderLayout.SOUTH);
+        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
+
+        setContentPane(mainPanel);
     }
 
     private void addListeners() {
@@ -75,7 +79,7 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
                 mappingPanel.setExcel2Headers(headers);
             }
         } catch (IOException e) {
-            showError("Error reading Excel file: " + e.getMessage());
+            showError("Error reading Excel file: " + e.getMessage(), "File Read Error");
             if (FileChooserPanel.EXCEL1_PATH_PROPERTY.equals(propertyName)) {
                 mappingPanel.setExcel1Headers(Collections.emptyList());
             } else if (FileChooserPanel.EXCEL2_PATH_PROPERTY.equals(propertyName)) {
@@ -95,17 +99,14 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
         SwingWorker<String, Void> worker = new SwingWorker<String, Void>() {
             @Override
             protected String doInBackground() throws Exception {
-                // 1. Parse Data
                 List<Attribute> excel1Data = ExcelParser.parseDataFromExcel1(config.getExcel1Path(),
                         config.getExcel1AttributeColumn(), config.getExcel1ReportColumns(), config.getExcel1ProductColumns());
                 Map<String, Map<String, String>> excel2Data = ExcelParser.parseDataFromExcel2(config.getExcel2Path(),
                         config.getExcel2AttributeNameColumns(), config.getExcel2ReportColumn(), config.getExcel2ProductColumn());
 
-                // 2. Run Comparison
                 ComparisonEngine engine = new ComparisonEngine();
                 engine.runComparison(excel1Data, excel2Data);
 
-                // 3. Generate Report
                 ExcelReportGenerator reportGenerator = new ExcelReportGenerator();
                 return reportGenerator.generateReport(engine.getSummaryStats(), engine.getComparisonResults());
             }
@@ -117,7 +118,7 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
                     String reportPath = get();
                     showCompletionDialog(reportPath);
                 } catch (InterruptedException | ExecutionException e) {
-                    showError("An error occurred during reconciliation: " + e.getCause().getMessage());
+                    showError("An error occurred during reconciliation: " + e.getCause().getMessage(), "Execution Error");
                 }
             }
         };
@@ -140,18 +141,17 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
 
     private boolean validateConfig(MappingConfig config) {
         if (config.getExcel1Path().isEmpty() || config.getExcel2Path().isEmpty()) {
-            showError("Please select both Excel files.");
+            showError("Please select both Excel files.", "Validation Error");
             return false;
         }
         if (config.getExcel1AttributeColumn() == null) {
-            showError("Please select an Attribute column for Excel 1.");
+            showError("Please select an Attribute column for Excel 1.", "Validation Error");
             return false;
         }
         if (config.getExcel2ReportColumn() == null || config.getExcel2ProductColumn() == null) {
-            showError("Please select Report and Product columns for Excel 2.");
+            showError("Please select Report and Product columns for Excel 2.", "Validation Error");
             return false;
         }
-        // Add more specific validations as needed
         return true;
     }
 
@@ -160,8 +160,8 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
         setCursor(busy ? Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR) : Cursor.getDefaultCursor());
     }
 
-    private void showError(String message) {
-        JOptionPane.showMessageDialog(this, message, "Validation Error", JOptionPane.ERROR_MESSAGE);
+    private void showError(String message, String title) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.ERROR_MESSAGE);
     }
 
     private void showCompletionDialog(String reportPath) {
@@ -171,18 +171,20 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
         pathField.setEditable(false);
         panel.add(pathField, BorderLayout.CENTER);
 
-        JButton openButton = new JButton("Open Report");
-        openButton.addActionListener(e -> {
-            try {
-                Desktop.getDesktop().open(new File(reportPath));
-            } catch (IOException ex) {
-                showError("Could not open the report file: " + ex.getMessage());
-            }
-        });
+        Object[] options = {"Open Report", "Close"};
+        int choice = JOptionPane.showOptionDialog(this, panel, "Success",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
 
-        JOptionPane.showMessageDialog(this, panel, "Success", JOptionPane.INFORMATION_MESSAGE, new ImageIcon());
-        // A bit of a hack to get the button in the dialog
-        JOptionPane.showOptionDialog(this, panel, "Success",
-                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, new Object[]{openButton}, null);
+        if (choice == 0) { // "Open Report" was clicked
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(new File(reportPath));
+                } else {
+                    showError("Desktop operations not supported on this system.", "Compatibility Error");
+                }
+            } catch (IOException ex) {
+                showError("Could not open the report file: " + ex.getMessage(), "File Open Error");
+            }
+        }
     }
 }
