@@ -1,0 +1,11 @@
+/app/src/main/java/com/recon/config/MappingConfig.java
+/app/src/main/java/com/recon/model/ComparisonResult.java
+/app/src/main/java/com/recon/parser/ExcelParser.java
+/app/src/main/java/com/recon/App.java
+/app/src/main/java/com/recon/model/SummaryStats.java
+/app/src/main/java/com/recon/model/Attribute.java
+/app/src/main/java/com/recon/engine/ComparisonEngine.java
+/app/src/main/java/com/recon/ui/MappingPanel.java
+/app/src/main/java/com/recon/ui/ReconUI.java
+/app/src/main/java/com/recon/ui/FileChooserPanel.java
+/app/src/main/java/com/recon/report/ExcelReportGenerator.java
