@@ -38,17 +38,13 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
     }
 
     private void layoutComponents() {
-        // Create a main panel to hold all components and set it as the content pane
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
         mainPanel.add(fileChooserPanel, BorderLayout.NORTH);
         mainPanel.add(mappingPanel, BorderLayout.CENTER);
-
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         bottomPanel.add(runButton);
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
-
         setContentPane(mainPanel);
     }
 
@@ -80,16 +76,18 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
             }
         } catch (IOException e) {
             showError("Error reading Excel file: " + e.getMessage(), "File Read Error");
-            if (FileChooserPanel.EXCEL1_PATH_PROPERTY.equals(propertyName)) {
-                mappingPanel.setExcel1Headers(Collections.emptyList());
-            } else if (FileChooserPanel.EXCEL2_PATH_PROPERTY.equals(propertyName)) {
-                mappingPanel.setExcel2Headers(Collections.emptyList());
-            }
         }
     }
 
     private void runReconciliation() {
-        MappingConfig config = getMappingConfigFromUI();
+        MappingConfig config;
+        try {
+            config = getMappingConfigFromUI();
+        } catch (Exception e) {
+            showError("An unexpected error occurred while reading UI selections: " + e.getClass().getName() + " - " + e.getMessage(), "UI Read Error");
+            return;
+        }
+
         if (!validateConfig(config)) {
             return;
         }
@@ -103,10 +101,8 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
                         config.getExcel1AttributeColumn(), config.getExcel1ReportColumns(), config.getExcel1ProductColumns());
                 Map<String, Map<String, String>> excel2Data = ExcelParser.parseDataFromExcel2(config.getExcel2Path(),
                         config.getExcel2AttributeNameColumns(), config.getExcel2ReportColumn(), config.getExcel2ProductColumn());
-
                 ComparisonEngine engine = new ComparisonEngine();
                 engine.runComparison(excel1Data, excel2Data);
-
                 ExcelReportGenerator reportGenerator = new ExcelReportGenerator();
                 return reportGenerator.generateReport(engine.getSummaryStats(), engine.getComparisonResults());
             }
@@ -118,7 +114,8 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
                     String reportPath = get();
                     showCompletionDialog(reportPath);
                 } catch (InterruptedException | ExecutionException e) {
-                    showError("An error occurred during reconciliation: " + e.getCause().getMessage(), "Execution Error");
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    showError("An error occurred during reconciliation: " + cause.getMessage(), "Execution Error");
                 }
             }
         };
@@ -140,7 +137,7 @@ public class ReconUI extends JFrame implements PropertyChangeListener {
     }
 
     private boolean validateConfig(MappingConfig config) {
-        if (config.getExcel1Path().isEmpty() || config.getExcel2Path().isEmpty()) {
+        if (config.getExcel1Path() == null || config.getExcel1Path().isEmpty() || config.getExcel2Path() == null || config.getExcel2Path().isEmpty()) {
             showError("Please select both Excel files.", "Validation Error");
             return false;
         }
